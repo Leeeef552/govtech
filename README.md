@@ -1,47 +1,46 @@
-# 🏠 HDB Price Intelligence System
+# 🏠 HDB Price Intelligence System (Updated)
 
-This project provides a natural language interface for analyzing and predicting HDB flat prices. The system routes user queries through a layered architecture that combines **LLM-based query understanding**, **machine learning (XGBoost)** for predictions, and **SQL-based analytics** for data-driven insights.
+This project provides a natural language interface for analyzing and recommending **HDB flat prices**. The system leverages **a unified pretrained model** that integrates both **prediction** and **analysis** tasks, ensuring consistency and simplicity.
 
 ---
 
 ## 🔑 Main Entry Point
 
-The main entry point to the system is **a user query into the LLM**.
-The query is first classified into one of two categories:
+The main entry point remains **a user query into the LLM**.
+The query is classified into one of two high-level intents:
 
-1. **Prediction-based** queries → Estimate/project HDB flat prices.
-2. **Analysis-based** queries → Retrieve, analyze, and present insights from the database.
+1. **Price Recommendation (BTO/Resale)** → Gauge BTO prices based on resale benchmarks.
+2. **Data Analysis** → Retrieve, explore, and explain insights from the database.
 
 ---
 
 ## 🧠 Query Types
 
-### 1. Prediction
+### 1. Price Recommendation (BTO & Resale)
 
-* **Goal:** Estimate resale price of HDB flats based on user-specified variables (flat type, location, size, etc.).
+* **Goal:** Estimate **resale prices** and use them as benchmarks to derive **BTO price recommendations**.
 * **Pipeline:**
 
-  1. LLM interprets the query and extracts relevant variables.
-  2. Data cleaning & preparation (rule-based, automated).
-  3. Feature engineering for categorical, text, and numeric variables.
-  4. Price prediction using **XGBoost** (with AutoML handling standard preprocessing).
-  5. Results fed into synthesizer LLM → outputs projected price with natural language explanation.
+  1. LLM interprets the query and extracts relevant variables (flat type, location, lease, size, etc.).
+  2. Unified pretrained model estimates **resale price**.
+  3. Resale price → transformed into **BTO recommendation** using predefined adjustment rules (e.g., subsidies, launch discounts).
+  4. Synthesizer LLM explains the reasoning clearly to the user.
 
 ---
 
 ### 2. Analysis
 
-* **Goal:** Retrieve and analyze structured data to answer factual or exploratory questions.
+* **Goal:** Provide data-driven insights and trends on HDB prices.
 * **Pipeline:**
 
-  1. LLM converts natural language query → SQL query.
-  2. SQL query executed on HDB database.
-  3. Raw data returned.
-  4. Data passed to synthesizer LLM → generates **analytical textual output** backed with the extracted data.
+  1. LLM interprets the query into structured SQL.
+  2. SQL query retrieves relevant resale transaction data.
+  3. Unified pretrained model applies feature extraction/representation for consistency.
+  4. Synthesizer LLM generates clear, data-backed explanations (tables, charts, narratives).
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Unified System Architecture
 
 ```
 User Query
@@ -53,58 +52,59 @@ User Query
      │
  ┌────┴────┐
  ▼         ▼
-Prediction Analysis
-(ML Model) (SQL-based)
-     │         │
-     ▼         ▼
-   Results  Retrieved Data
-     │         │
-     └────┬────┘
-          ▼
-   Synthesizer LLM
-          │
-          ▼
-   Natural Language
-   Output & Feedback
+Recommendation  Analysis
+(BTO via Resale) (SQL-based)
+     │              │
+     └──────┬───────┘
+            ▼
+   Unified Pretrained Model
+            │
+            ▼
+     Synthesizer LLM
+            │
+            ▼
+   Natural Language Output
 ```
 
 ---
 
 ## 📌 Key Points
 
-* **Prediction Layer:**
+* **Unified Pretrained Model:**
 
-  * Uses XGBoost with AutoML preprocessing.
-  * Handles structured, categorical, text, and numeric inputs.
-  * Focused on price forecasting.
+  * Single model trained on historical resale transactions.
+  * Outputs **resale prices** directly.
+  * Provides consistent feature understanding for both prediction and analysis.
+
+* **BTO Price Recommendation:**
+
+  * Anchored on resale benchmarks.
+  * Adjustment layer applies subsidies/discounts to resale baseline → BTO pricing gauge.
 
 * **Analysis Layer:**
 
-  * Translates natural queries into SQL.
-  * Retrieves and summarizes data from database.
-  * Produces interpretable text outputs with supporting figures.
-
-* **Final Synthesizer:**
-
-  * Converts raw predictions or analysis results into coherent, user-friendly explanations.
-  * Ensures outputs are backed by reasoning and data.
+  * Uses SQL for data retrieval.
+  * Unified model ensures consistent interpretation of features.
+  * Synthesizer explains results clearly.
 
 ---
 
 ## 🚀 Example Queries
 
-* **Prediction:**
+* **BTO Recommendation:**
+
+  > "What’s the estimated BTO launch price for a 4-room flat in Punggol today?"
+  > → System predicts resale benchmark, applies adjustments, and outputs recommended BTO price with explanation.
+
+* **Resale Price:**
 
   > "What is the expected resale price for a 5-room flat in Ang Mo Kio built in 1995 with 90 years left on lease?"
-  > → ML model predicts price with explanation.
+  > → Unified model predicts resale price and explains.
 
 * **Analysis:**
 
   > "Show me the trend of executive flat prices in Tampines over the last 5 years."
-  > → SQL query retrieves data, LLM synthesizes into textual + tabular/chart-based analysis.
+  > → SQL query fetches data, model processes features, synthesizer outputs charts + explanation.
 
 ---
 
-✅ With this design, the system intelligently distinguishes between **prediction tasks** and **analysis tasks**, ensuring the right tools (ML or SQL) are applied, while the LLM provides seamless natural language interaction.
-
----
