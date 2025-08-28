@@ -5,6 +5,7 @@ import json
 from api.analyst import HDBDataAnalyst
 from api.predictor import PredictorClient
 from api.synthesizer import Synthesizer
+import re
 
 
 class Orchestrator:
@@ -33,19 +34,19 @@ class Orchestrator:
     
     Rules:
     - Always return JSON only, no explanations.
-    - Keys: {"action": "prediction" | "analysis" | "both"}
+    - Keys: {{"action": "prediction" | "analysis" | "both"}}
     - If "both", also explain how to combine them.
     - Base your choice ONLY on the query intent.
     
     Example:
     Q: "What’s the predicted price of a 4-room flat in Ang Mo Kio?"
-    A: {"action": "prediction"}
+    A: {{"action": "prediction"}}
     
     Q: "Which towns had the least BTO launches in the past decade?"
-    A: {"action": "analysis"}
+    A: {{"action": "analysis"}}
     
     Q: "How do current resale predictions compare with past BTO trends in Ang Mo Kio?"
-    A: {"action": "both"}
+    A: {{"action": "both"}}
     
     ---
     Query: {user_query}
@@ -101,8 +102,13 @@ class Orchestrator:
             model=self.model,
             contents=prompt
         )
-        # Expecting valid JSON back
-        return json.loads(response.text.strip())
+        raw = response.text or ""
+        json_str = re.search(r'\{.*\}', raw, flags=re.S)
+        if not json_str:
+            raise ValueError("No JSON object found in model answer")
+
+        result = json.loads(json_str.group(0))
+        return result
     
     def build_prediction_payload(self, user_query: str) -> dict:
         """
@@ -120,12 +126,12 @@ class Orchestrator:
             - flat_model: {self.FLAT_MODELS}
             - storey_range: {self.STOREY_RANGES}
             - floor_area_sqm: integer between {self.MIN_AREA} and {self.MAX_AREA}
-            - lease_commencement_date: integer year (YYYY).  If not mentioned, use 2025.
+            - lease_commence_date: integer year (YYYY).  If not mentioned, use 2025.
 
             For any attribute *not explicitly stated* in the user query, choose the SINGLE most likely value based on overall Singapore resale-market frequency.  Never return null.
 
             Return valid JSON only, no extra words or keys.
-            Example JSON: {{"month": "2025-01", "town": "ang mo kio", "flat_type": "4-room", "flat_model": "improved", "storey_range": "10 to 12", "floor_area_sqm": 90, "lease_commencement_date": 2025}}
+            Example JSON: {{"month": "2025-01", "town": "ang mo kio", "flat_type": "4-room", "flat_model": "improved", "storey_range": "10 to 12", "floor_area_sqm": 90, "lease_commence_date": 2025}}
 
             User query: {user_query}
         """
@@ -135,8 +141,24 @@ class Orchestrator:
                 model=self.model,
                 contents=prompt
             )
+        raw_text = response.text.strip()
 
-        payload = json.loads(response.text.strip())
+        # Attempt to extract JSON from response
+        json_match = re.search(r'\{.*\}', raw_text, re.S)
+        if not json_match:
+            raise ValueError(f"No valid JSON found in model response: {raw_text[:200]}...")
+
+        try:
+            payload = json.loads(json_match.group(0))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to decode JSON from model response: {e}\nResponse: {raw_text}")
+
+        # Validate expected keys
+        required_keys = ["month", "town", "flat_type", "flat_model", "storey_range", "floor_area_sqm", "lease_commence_date"]
+        for key in required_keys:
+            if key not in payload:
+                payload[key] = self._default_value_for(key)
+
         return payload
     
     def run(self, user_query: str, analyst: HDBDataAnalyst,
@@ -147,15 +169,32 @@ class Orchestrator:
 
         if action == "prediction":
             payload = self.build_prediction_payload(user_query)
-            return {"action": "prediction", "prediction": predictor.predict(payload)}
-
+            prediction_result = predictor.predict(payload)
+            synthesized = synthesizer.synthesize(
+                user_query=user_query,
+                prediction=prediction_result,
+                analysis=None,
+                payload=payload
+                )
+            return synthesized
         elif action == "analysis":
             analysis = analyst.query(user_query, display=False)
-            return {"action": "analysis", "analysis": str(analysis)}
+            synthesized = synthesizer.synthesize(
+                user_query=user_query,
+                prediction=None,
+                analysis=str(analysis),
+                payload=None
+            )
+            return synthesized
 
         elif action == "both":
             payload = self.build_prediction_payload(user_query)
             prediction = predictor.predict(payload)
             analysis = analyst.query(user_query, display=False)
-            combined = synthesizer.synthesize(user_query, prediction, str(analysis))
-            return combined
+            synthesized = synthesizer.synthesize(
+                user_query=user_query,
+                prediction=prediction,
+                analysis=analysis,
+                payload=payload
+            )
+            return synthesized

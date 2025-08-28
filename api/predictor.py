@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 class PredictorClient:
     def __init__(self, url: str = None):
-        load
+        load_dotenv
         self.url = url or os.getenv("PREDICTOR_URL")
 
     def predict(self, payload: dict) -> dict:

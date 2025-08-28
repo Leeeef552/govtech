@@ -90,6 +90,8 @@ class HDBDataAnalyst:
     {sample_data}
     
 
+    Note that the data in the database is stored in lowercase
+
     Rules
     1. Return ONLY the SQL statement—no explanations, no markdown fences.  
     2. Use standard SQLite syntax (CTEs allowed).  

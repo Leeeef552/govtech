@@ -11,3 +11,6 @@ xgboost
 joblib
 google-genai
 requests
+fastapi
+pydantic
+uvicorn
