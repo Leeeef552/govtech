@@ -1,0 +1,13 @@
+numpy
+pandas
+dotenv
+seaborn
+plotly
+matplotlib
+optuna
+plotly
+scikit-learn
+xgboost 
+joblib
+google-genai
+requests
