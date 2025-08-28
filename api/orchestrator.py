@@ -2,6 +2,9 @@ from google import genai
 import os
 from dotenv import load_dotenv
 import json
+from api.analyst import HDBDataAnalyst
+from api.predictor import PredictorClient
+from api.synthesizer import Synthesizer
 
 
 class Orchestrator:
@@ -48,6 +51,40 @@ class Orchestrator:
     Query: {user_query}
     """
 
+
+    TOWNS = [
+        "woodlands", "jurong west", "tampines", "yishun", "bedok",
+        "sengkang", "hougang", "ang mo kio", "bukit batok", "bukit merah",
+        "choa chu kang", "pasir ris", "bukit panjang", "toa payoh",
+        "kallang/whampoa", "geylang", "queenstown", "punggol", "clementi",
+        "jurong east", "sembawang", "serangoon", "bishan", "marine parade",
+        "central area", "bukit timah"
+    ]
+
+    FLAT_TYPES = [
+        "4-room", "3-room", "5-room", "executive",
+        "2-room", "1-room", "multi-generation"
+    ]
+
+    STOREY_RANGES = [
+        "04 to 06", "07 to 09", "01 to 03", "10 to 12", "13 to 15",
+        "01 to 05", "06 to 10", "16 to 18", "11 to 15", "19 to 21",
+        "22 to 24", "16 to 20", "25 to 27", "28 to 30", "21 to 25",
+        "26 to 30", "34 to 36", "37 to 39", "31 to 33", "40 to 42",
+        "36 to 40", "31 to 35"
+    ]
+
+    FLAT_MODELS = [
+        "model a", "improved", "new generation", "premium apartment",
+        "simplified", "apartment", "maisonette", "standard", "dbss",
+        "model a2", "model a-maisonette", "adjoined flat", "type s1",
+        "2-room", "type s2", "premium apartment loft", "terrace",
+        "multi generation", "3gen", "improved-maisonette", "premium maisonette"
+    ]
+
+    MIN_AREA, MAX_AREA = 31, 266
+
+
     def __init__(self, model="gemini-2.5-flash"):
         load_dotenv()
         api_key = os.getenv("GEMINI_API_KEY")
@@ -55,6 +92,7 @@ class Orchestrator:
             raise ValueError("GEMINI_API_KEY not found")
         self.client = genai.Client(api_key=api_key)
         self.model = model
+
 
     def decide(self, user_query: str) -> dict:
         """Return structured decision JSON: {"action": "..."}"""
@@ -65,3 +103,59 @@ class Orchestrator:
         )
         # Expecting valid JSON back
         return json.loads(response.text.strip())
+    
+    def build_prediction_payload(self, user_query: str) -> dict:
+        """
+        Given a free-form user query, return a dictionary with the 6 required keys
+        for the prediction endpoint.  Any missing values are filled with the
+        statistically most common / reasonable choice.
+        """
+        prompt = f"""
+            You are an assistant that extracts structured attributes for a Singapore HDB resale-price prediction model.
+
+            Allowed values:
+            - month: in YYYY-MM format, if not specified you may use 2025-01
+            - town: {self.TOWNS}
+            - flat_type: {self.FLAT_TYPES}
+            - flat_model: {self.FLAT_MODELS}
+            - storey_range: {self.STOREY_RANGES}
+            - floor_area_sqm: integer between {self.MIN_AREA} and {self.MAX_AREA}
+            - lease_commencement_date: integer year (YYYY).  If not mentioned, use 2025.
+
+            For any attribute *not explicitly stated* in the user query, choose the SINGLE most likely value based on overall Singapore resale-market frequency.  Never return null.
+
+            Return valid JSON only, no extra words or keys.
+            Example JSON: {{"month": "2025-01", "town": "ang mo kio", "flat_type": "4-room", "flat_model": "improved", "storey_range": "10 to 12", "floor_area_sqm": 90, "lease_commencement_date": 2025}}
+
+            User query: {user_query}
+        """
+
+        response = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY")).models.generate_content(
+                model=self.model,
+                contents=prompt
+            )
+
+        payload = json.loads(response.text.strip())
+        return payload
+    
+    def run(self, user_query: str, analyst: HDBDataAnalyst,
+            predictor: PredictorClient, synthesizer: Synthesizer) -> dict:
+
+        decision = self.decide(user_query)
+        action = decision["action"]
+
+        if action == "prediction":
+            payload = self.build_prediction_payload(user_query)
+            return {"action": "prediction", "prediction": predictor.predict(payload)}
+
+        elif action == "analysis":
+            analysis = analyst.query(user_query, display=False)
+            return {"action": "analysis", "analysis": str(analysis)}
+
+        elif action == "both":
+            payload = self.build_prediction_payload(user_query)
+            prediction = predictor.predict(payload)
+            analysis = analyst.query(user_query, display=False)
+            combined = synthesizer.synthesize(user_query, prediction, str(analysis))
+            return combined

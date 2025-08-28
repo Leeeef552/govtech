@@ -14,6 +14,22 @@ class QueryResult:
     columns: List[str]
     explanation: str
 
+    def __str__(self) -> str:
+        # Format results nicely
+        table = ""
+        if self.results:
+            header = " | ".join(self.columns)
+            rows = "\n".join(" | ".join(str(v) for v in row) for row in self.results)
+            table = f"\n{header}\n{rows}\n"
+        else:
+            table = "\nNo rows returned.\n"
+
+        return (
+            f"SQL used:\n{self.sql}\n\n"
+            f"Query Results:{table}\n"
+            f"Analysis:\n{self.explanation}\n"
+        )
+
 
 class HDBDataAnalyst:
     """
@@ -338,12 +354,6 @@ class HDBDataAnalyst:
         # Generate explanation
         explanation = self._generate_explanation(user_query, sql, results)
         
-        if display:
-            print("\n=== Query Results ===")
-            self.display_results(results, columns)
-            print("\n=== Analysis ===")
-            print(explanation)
-        
         return QueryResult(
             sql=sql,
             results=results,
@@ -360,8 +370,7 @@ def main():
     result = analyst.query("Please recommend housing estates that have had limited Build-To-Order (BTO) launches in the past 10 years")
     
     # Access individual components if needed
-    print(f"\nSQL used: {result.sql}")
-    print(f"Number of results: {len(result.results)}")
+    print(result)
 
 
 if __name__ == "__main__":
