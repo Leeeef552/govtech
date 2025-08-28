@@ -1,7 +1,3 @@
-Here’s a clean **README draft** for your system based on the architecture you described:
-
----
-
 # 🏠 HDB Price Intelligence System
 
 This project provides a natural language interface for analyzing and predicting HDB flat prices. The system routes user queries through a layered architecture that combines **LLM-based query understanding**, **machine learning (XGBoost)** for predictions, and **SQL-based analytics** for data-driven insights.
@@ -112,4 +108,3 @@ Prediction Analysis
 ✅ With this design, the system intelligently distinguishes between **prediction tasks** and **analysis tasks**, ensuring the right tools (ML or SQL) are applied, while the LLM provides seamless natural language interaction.
 
 ---
-
