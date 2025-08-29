@@ -173,11 +173,23 @@ The system leverages **Gemini LLM** as the NLP entry point for database queries 
 
    * Hosting multiple model endpoints increases complexity.
 
-5. **Future Work**
+5. **Deployment & Portability**
+
+   * Dockerisation not yet implemented. Containerising the system would ensure:
+   * Reproducible environments across machines.
+   * A `Dockerfile` and `docker-compose.yml` can be added to run the FastAPI service, database, and model in isolated containers.
+
+6. **Frontend Integration**
+
+   * Currently only FastAPI endpoints exist. A lightweight frontend dashboard could improve usability by including a small Streamlit interface
+   * Allowing users to enter natural language queries or prediction parameters via a web interface.
+   
+7. **Future Work**
 
    * Enrich data with amenities, transport, schools.
    * Optimize LLM orchestration to reduce latency.
    * Add affordability analysis tied to income groups.
+   * Implement monitoring & automated testing (model drift, endpoint latency, SQL generation accuracy).
 
 ---
 
