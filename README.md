@@ -191,17 +191,20 @@ The system leverages **Gemini LLM** as the NLP entry point for database queries 
 │   ├── predictor.py
 │   └── synthesizer.py
 │
-├── archive/                 # Archived experiments / old files
 ├── data/                    # Raw data & database
 │   ├── *.csv
 │   └── hdb_prices.db
 │
 ├── model/                   # Trained XGBoost artifacts
+|
 ├── notebooks/               # Jupyter notebooks
 │   ├── data_ingestion.ipynb
 │   └── model_training.ipynb
 │
-├── notes/                   # Documentation notes
+├── others/                  # other miscelleanous files (can be excluded from project)
+│   ├── archive/             # old files
+│   └── notes/               # documentation notes
+|
 ├── server/                  # FastAPI routes
 │   └── app.py
 ├── utils/                   # Helper functions
