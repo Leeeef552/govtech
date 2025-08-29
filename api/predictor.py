@@ -1,7 +1,7 @@
 import requests, os
 from dotenv import load_dotenv
 
-class PredictorClient:
+class Predictor:
     def __init__(self, url: str = None):
         load_dotenv
         self.url = url or os.getenv("PREDICTOR_URL")

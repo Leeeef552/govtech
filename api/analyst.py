@@ -31,7 +31,7 @@ class QueryResult:
         )
 
 
-class HDBDataAnalyst:
+class Analyst:
     """
     A class for analyzing Singapore HDB BTO data using natural language queries.
     
@@ -366,7 +366,7 @@ class HDBDataAnalyst:
 
 def main():
     """Example usage of the HDBDataAnalyst class."""
-    analyst = HDBDataAnalyst("data/hdb_prices.db")
+    analyst = Analyst("data/hdb_prices.db")
     
     # Example query
     result = analyst.query("Please recommend housing estates that have had limited Build-To-Order (BTO) launches in the past 10 years")

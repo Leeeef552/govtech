@@ -1,110 +1,216 @@
-# 🏠 HDB Price Intelligence System (Updated)
-
-This project provides a natural language interface for analyzing and recommending **HDB flat prices**. The system leverages **a unified pretrained model** that integrates both **prediction** and **analysis** tasks, ensuring consistency and simplicity.
+Here’s a **cleanly formatted README** version, with consistent headings, code blocks, bulleting, and section separation for readability:
 
 ---
 
-## 🔑 Main Entry Point
+# HDB Resale & BTO Price Analysis and Prediction
 
-The main entry point remains **a user query into the LLM**.
-The query is classified into one of two high-level intents:
+## 📌 Overview
 
-1. **Price Recommendation (BTO/Resale)** → Gauge BTO prices based on resale benchmarks.
-2. **Data Analysis** → Retrieve, explore, and explain insights from the database.
+This project leverages **HDB resale and BTO price data from data.gov.sg** to build an end-to-end system for:
 
----
+1. **Data Ingestion** – Collecting and preprocessing public housing data.
+2. **Analysis** – Natural language query handling via LLMs to extract insights from the SQL database.
+3. **Prediction** – Training and serving an ML model (XGBoost) to predict HDB resale prices.
+4. **Deployment** – Hosting analysis and prediction endpoints via FastAPI.
 
-## 🧠 Query Types
-
-### 1. Price Recommendation (BTO & Resale)
-
-* **Goal:** Estimate **resale prices** and use them as benchmarks to derive **BTO price recommendations**.
-* **Pipeline:**
-
-  1. LLM interprets the query and extracts relevant variables (flat type, location, lease, size, etc.).
-  2. Unified pretrained model estimates **resale price**.
-  3. Resale price → transformed into **BTO recommendation** using predefined adjustment rules (e.g., subsidies, launch discounts).
-  4. Synthesizer LLM explains the reasoning clearly to the user.
+The system integrates **LLMs as a natural language interface**, enabling users to either query the database for insights or request price predictions.
 
 ---
 
-### 2. Analysis
+## 📊 Data Sources
 
-* **Goal:** Provide data-driven insights and trends on HDB prices.
-* **Pipeline:**
+* **BTO Prices**: [BTO Pricing Dataset](https://data.gov.sg/datasets/d_2d493bdcc1d9a44828b6e71cb095b88d/view)
+* **Resale Prices**: [Resale Flat Prices Dataset](https://data.gov.sg/collections/189/view)
 
-  1. LLM interprets the query into structured SQL.
-  2. SQL query retrieves relevant resale transaction data.
-  3. Unified pretrained model applies feature extraction/representation for consistency.
-  4. Synthesizer LLM generates clear, data-backed explanations (tables, charts, narratives).
+**Notes**:
+
+* Data was ingested into an **SQLite database** with two tables: `bto_prices` and `resale_prices`.
+* Columns were normalized (e.g., lowercased) for consistency.
+* Attempted feature enrichment with transport accessibility (nearest MRT/LRT/bus stops, density). This is **work-in-progress** in `notebooks/data_ingestion.ipynb`.
 
 ---
 
-## 🏗️ Unified System Architecture
+## 🗄️ Database Schema
 
-```
-User Query
-     │
-     ▼
-+-----------------+
-|  Classifier LLM |
-+-----------------+
-     │
- ┌────┴────┐
- ▼         ▼
-Recommendation  Analysis
-(BTO via Resale) (SQL-based)
-     │              │
-     └──────┬───────┘
-            ▼
-   Unified Pretrained Model
-            │
-            ▼
-     Synthesizer LLM
-            │
-            ▼
-   Natural Language Output
+**BTO Prices Table**:
+
+```sql
+CREATE TABLE bto_prices (
+    _id INTEGER PRIMARY KEY AUTOINCREMENT,
+    financial_year TEXT,
+    room_type TEXT,
+    town TEXT,
+    min_selling_price REAL,
+    max_selling_price REAL,
+    min_selling_price_less_ahg_shg REAL,
+    max_selling_price_less_ahg_shg REAL
+);
 ```
 
----
+**Resale Prices Table**:
 
-## 📌 Key Points
-
-* **Unified Pretrained Model:**
-
-  * Single model trained on historical resale transactions.
-  * Outputs **resale prices** directly.
-  * Provides consistent feature understanding for both prediction and analysis.
-
-* **BTO Price Recommendation:**
-
-  * Anchored on resale benchmarks.
-  * Adjustment layer applies subsidies/discounts to resale baseline → BTO pricing gauge.
-
-* **Analysis Layer:**
-
-  * Uses SQL for data retrieval.
-  * Unified model ensures consistent interpretation of features.
-  * Synthesizer explains results clearly.
+```sql
+CREATE TABLE resale_prices (
+    _id INTEGER PRIMARY KEY AUTOINCREMENT,
+    month TEXT,
+    town TEXT,
+    flat_type TEXT,
+    flat_model TEXT,
+    block TEXT,
+    street_name TEXT,
+    storey_range TEXT,
+    floor_area_sqm REAL,
+    lease_commence_date TEXT,
+    resale_price REAL
+);
+```
 
 ---
 
-## 🚀 Example Queries
+## 🤖 Model Training
 
-* **BTO Recommendation:**
+Notebook: `notebooks/model_training.ipynb`
 
-  > "What’s the estimated BTO launch price for a 4-room flat in Punggol today?"
-  > → System predicts resale benchmark, applies adjustments, and outputs recommended BTO price with explanation.
+**Preprocessing**:
 
-* **Resale Price:**
+* One-hot encoding categorical variables.
+* Feature engineering:
 
-  > "What is the expected resale price for a 5-room flat in Ang Mo Kio built in 1995 with 90 years left on lease?"
-  > → Unified model predicts resale price and explains.
+  * `flat_age` = transaction year − lease commencement year
+  * `remaining_lease` = 99 years − `flat_age`
+* (Planned) Transport-related features for accessibility.
 
-* **Analysis:**
+**Model**:
 
-  > "Show me the trend of executive flat prices in Tampines over the last 5 years."
-  > → SQL query fetches data, model processes features, synthesizer outputs charts + explanation.
+* XGBoost with hyperparameter tuning (Optuna).
+* Training set: \~250k rows sampled (from \~950k total).
+* Considered subgroup models (e.g., by town or decade).
+
+**Performance**:
+
+* Final RMSE ≈ **24,000 SGD**
+* Error margin: \~3–8% of actual resale price.
 
 ---
 
+## 🏗️ System Architecture
+
+### FastAPI Service
+
+* `/predict` → ML model endpoint for price prediction.
+* `/analysis` → SQL-based analysis endpoint.
+
+### LLM Integration
+
+The system leverages **Gemini LLM** as the NLP entry point for database queries and predictions.
+
+**Core Capabilities**:
+
+* **SQL Query Generation**: Up to 3 attempts for valid SQL → execution → validation.
+* **Prediction Handling**: Extracts features, normalizes inputs, applies defaults where needed.
+* **Tool Orchestration**:
+
+  * Mode selection (analysis vs. prediction)
+  * Iterative query refinement
+  * Synthesizes multiple tool outputs into final user response
+
+**System Modes**:
+
+1. **Analysis Mode (`/analysis`)**
+
+   * Generates SQL queries from user intent
+   * Executes & validates queries (up to 3 retries)
+   * Returns structured answers
+
+2. **Prediction Mode (`/predict`)**
+
+   * Extracts intent and features for ML model
+   * Handles variable inconsistencies with LLM support
+   * Provides fallback defaults for missing values
+
+---
+
+## 🚀 Running the System
+
+1. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Start FastAPI server:
+
+   ```bash
+   python main.py
+   ```
+
+   * Runs `uvicorn` with endpoints `/predict` and `/analysis`.
+
+3. Test:
+
+   * Edit sample queries in `main.py`
+   * Or send HTTP requests to endpoints.
+
+---
+
+## ⚠️ Limitations & Future Improvements
+
+1. **Latency**
+
+   * Multiple LLM calls per query (up to 10 worst case).
+
+2. **Feature Gaps**
+
+   * No income-based affordability analysis.
+   * Transport accessibility features not yet included.
+
+3. **Data Considerations**
+
+   * Historical data may reduce accuracy.
+   * Possible benefit from **town-specific models**.
+
+4. **Scalability**
+
+   * Hosting multiple model endpoints increases complexity.
+
+5. **Future Work**
+
+   * Enrich data with amenities, transport, schools.
+   * Optimize LLM orchestration to reduce latency.
+   * Add affordability analysis tied to income groups.
+
+---
+
+## 📂 Repository Structure
+
+```
+.
+├── api/                     # Core logic for analysis, prediction, orchestration
+│   ├── analyst.py
+│   ├── orchestrator_tool.py
+│   ├── predictor.py
+│   └── synthesizer.py
+│
+├── archive/                 # Archived experiments / old files
+├── data/                    # Raw data & database
+│   ├── *.csv
+│   └── hdb_prices.db
+│
+├── model/                   # Trained XGBoost artifacts
+├── notebooks/               # Jupyter notebooks
+│   ├── data_ingestion.ipynb
+│   └── model_training.ipynb
+│
+├── notes/                   # Documentation notes
+├── server/                  # FastAPI routes
+│   └── app.py
+├── utils/                   # Helper functions
+│
+├── .env
+├── .gitignore
+├── README.md
+├── main.py                  # FastAPI runner
+└── requirements.txt
+```
+
+---

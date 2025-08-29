@@ -1,10 +1,7 @@
 import subprocess
 import time
 import requests
-
-from api.analyst import HDBDataAnalyst
-from api.orchestrator import Orchestrator
-from api.predictor import PredictorClient
+from api.orchestrator_tool import Orchestrator
 from api.synthesizer import Synthesizer
 
 def start_ml_server():
@@ -15,7 +12,7 @@ def start_ml_server():
         stderr=subprocess.PIPE,
     )
     print("🚀 Starting ML server at http://localhost:8000 ...")
-    time.sleep(3)
+    time.sleep(3)  # give server a few seconds to spin up
     return process
 
 def wait_for_server(url="http://localhost:8000/predict", timeout=30):
@@ -38,23 +35,23 @@ def main():
     try:
         wait_for_server()
 
-        # Init components
-        orchestrator = Orchestrator()
-        analyst = HDBDataAnalyst("data/hdb_prices.db")
-        predictor = PredictorClient("http://localhost:8000/predict")
-        synthesizer = Synthesizer()
+        orch = Orchestrator(api_base_url="http://localhost:8000")
+        synth = Synthesizer(api_base_url="http://localhost:8000")
 
-        # Example queries
         queries = [
-            "What’s the predicted price of a 4-room flat in Ang Mo Kio?",
-            "Which towns had the least BTO launches in the past decade?",
-            "How do current resale predictions compare with past BTO trends in Ang Mo Kio?",
+            "which estate had the least BTO in the past 5 years, for this estate, recommend a BTO price for low floor, 3-room flat in Bedok with an area of 100 sq m and lease commencement in 2019. the flat model is premium maisonette",
+            "How does the predicted price for a 3-room flat in Bedok with an area of 100 sq m and lease commencement in 2019. the flat model is premium maisonette?"
         ]
 
         for q in queries:
-            print(f"\n🟢 User query: {q}")
-            result = orchestrator.run(q, analyst, predictor, synthesizer)
-            print(f"🔵 Final result:\n{result}")
+            print("=" * 80)
+            print("USER:", q)
+
+            # 1. orchestrator
+            orch_out = orch.run_two_pass(q)
+            final_text = synth.synthesize(str(orch_out["response"]))
+            print("FINAL ANSWER:\n", final_text)
+            print("=" * 80)
 
     finally:
         print("🛑 Stopping ML server...")

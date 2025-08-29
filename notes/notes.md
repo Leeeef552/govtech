@@ -5,14 +5,6 @@
     - Multigeneration (most expensive)
 
 
-## installation
-- numpy
-- pandas
-- matplotlib
-- openai
-- requests
-
-
 ## Data date range:
 - BTO date range:  Apr 2008 to Mar 2023
 - Resale date range: 2000 to Aug 2025
